@@ -1,7 +1,7 @@
 [project]
-name = "rag-with-langchain"
+name = "shakespeare-rag"
 version = "0.1.0"
-description = "Retrieval-augmented generation over local documents with LangChain, FAISS and OpenAI"
+description = "Shakespeare RAG: ask questions about Shakespeare's plays and poems with LangChain, FAISS and OpenAI"
 readme = "README.md"
 authors = [
     { name = "Taniket Mehra", email = "taniket.mehra@gmail.com" }
@@ -23,11 +23,12 @@ dependencies = [
     "pypdf>=6.19.0",
     "python-dotenv>=1.2.1",
     "sentence-transformers>=5.1.2",
+    "streamlit>=1.50.0",
     "unstructured>=0.18.3",
 ]
 
 [project.scripts]
-rag-with-langchain = "rag_with_langchain:main"
+shakespeare-rag = "shakespeare_rag:main"
 
 [build-system]
 requires = ["uv_build>=0.12.19,<0.13.0"]

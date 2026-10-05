@@ -1,6 +1,8 @@
-# RAG with LangChain
+# Shakespeare RAG
 
-A small retrieval-augmented generation (RAG) pipeline over your own documents:
+Ask questions about Shakespeare's plays and poems and get answers drawn from the texts. The dataset is 38 plays and 4 poem collections from the [Folger Shakespeare Library](https://www.folger.edu/explore/shakespeares-works/) editions, and it comes with a Streamlit chat UI.
+
+Under the hood it's a small retrieval-augmented generation (RAG) pipeline built with LangChain, which works on any documents you add:
 
 1. **Load** files from `data/` (PDF, TXT, CSV, Excel, Word, JSON) as LangChain documents
 2. **Chunk** them with `RecursiveCharacterTextSplitter`
@@ -24,12 +26,15 @@ flowchart LR
 ```
 .
 ├── app.py               # Entry point: ask a question from the command line
+├── chat.py              # Streamlit chat UI
+├── assets/logo.svg      # Logo shown in the chat UI
+├── .streamlit/          # Streamlit theme (parchment colors)
 ├── src/
 │   ├── data_loader.py   # load_all_documents(): file -> LangChain documents
 │   ├── embedding.py     # EmbeddingPipeline: chunking + embeddings
 │   ├── vectorstore.py   # FaissVectorStore: build, save, load, query
 │   └── search.py        # RAGSearch: retrieval + OpenAI summary
-├── data/                # Source documents (sample PDFs and text files)
+├── data/                # Source documents (Shakespeare PDFs in data/pdf/Shakespeare/)
 ├── notebook/            # Step-by-step exploration notebooks
 └── notes/               # Notes on RAG concepts
 ```
@@ -41,8 +46,8 @@ Requires Python 3.9+ and an [OpenAI API key](https://platform.openai.com/api-key
 **1. Clone the repo**
 
 ```bash
-git clone <repo-url>
-cd RAG-with-langchain
+git clone https://github.com/taniket15/shakespeare-rag.git
+cd shakespeare-rag
 ```
 
 **2. Install dependencies**
@@ -72,17 +77,33 @@ Open `.env` and set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`).
 
 **4. Add documents (optional)**
 
-`data/` already has sample PDFs and text files. Drop in your own files (PDF, TXT, CSV, `.xlsx`, `.docx`, `.json`). Subfolders are searched too.
+`data/pdf/Shakespeare/` already has the Folger editions of the plays and poems. To search other material, drop in your own files (PDF, TXT, CSV, `.xlsx`, `.docx`, `.json`). Subfolders are searched too.
 
-**5. Run it**
+**5. Build the vector store**
+
+```bash
+python -m src.vectorstore
+```
+
+This loads every file in `data/`, splits it into chunks, embeds the chunks and saves a FAISS index to `faiss_store/`, then runs a sample query to check it works. It takes a minute or two, and the embedding model is downloaded the first time. It doesn't need an OpenAI key.
+
+> **Changed your documents?** Run this command again. It rebuilds the index from scratch and overwrites `faiss_store/`, which is generated locally and is not committed to the repo.
+
+**6. Run it**
 
 ```bash
 python app.py "What happens in As You Like It?"
 ```
 
-The first run loads every file in `data/`, splits it into chunks, embeds the chunks and saves a FAISS index to `faiss_store/`. This takes a minute or two, and the embedding model is downloaded the first time. Later runs reuse the saved index and start quickly.
+This reuses the saved index, so it starts quickly. If you skip step 5, the first run builds the index for you.
 
-> **Changed your documents?** Delete `faiss_store/` and run again to rebuild the index. `faiss_store/` is generated locally and is not committed to the repo.
+**7. Chat in the browser (optional)**
+
+```bash
+streamlit run chat.py
+```
+
+This opens the Shakespeare RAG chat page at http://localhost:8501. The sidebar lists the works in the dataset and has example questions you can click. Each question is answered on its own, so follow-up questions don't see earlier messages.
 
 ## Usage
 
