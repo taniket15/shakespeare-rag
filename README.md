@@ -41,7 +41,7 @@ flowchart LR
 
 ## Getting started (first run)
 
-Requires Python 3.9+ and an [OpenAI API key](https://platform.openai.com/api-keys).
+Requires Python 3.12+ and an [OpenAI API key](https://platform.openai.com/api-keys).
 
 **1. Clone the repo**
 

@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Taniket Mehra", email = "taniket.mehra@gmail.com" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "chromadb>=1.5.9",
     "docx2txt>=0.9",
