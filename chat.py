@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 from datetime import date
 
@@ -46,7 +47,21 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"], [data
 [data-testid="stAppViewContainer"] {
     background: radial-gradient(ellipse at center, #faf2dc 0%, #f1e2bd 65%, #dcc28c 100%);
 }
-[data-testid="stHeader"], [data-testid="stBottom"], [data-testid="stBottom"] > div, [data-testid="stBottomBlockContainer"] {
+/* Top bar and the input bar stay put while the chat scrolls: give them a solid parchment background
+   that fades into the page, so text scrolls cleanly under them instead of showing through */
+[data-testid="stHeader"], [data-testid="stBottom"] > div {
+    /* the page's own parchment gradient, pinned to the screen so the bars blend in seamlessly */
+    background: radial-gradient(ellipse at center, #faf2dc 0%, #f1e2bd 65%, #dcc28c 100%) fixed;
+}
+[data-testid="stHeader"] {
+    -webkit-mask-image: linear-gradient(180deg, #000 75%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 75%, transparent 100%);
+}
+[data-testid="stBottom"] > div {
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 1.5rem);
+    mask-image: linear-gradient(180deg, transparent 0, #000 1.5rem);
+}
+[data-testid="stBottomBlockContainer"] {
     background: transparent;
 }
 [data-testid="stSidebar"] {
@@ -135,6 +150,28 @@ h1, h2, h3, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
     border: 3px double #c9a96e;
     border-radius: 2px;
     box-shadow: 2px 3px 8px rgba(90, 58, 34, 0.15);
+    padding: 1.1rem 1.4rem !important;  /* Streamlit leaves assistant messages without right padding */
+}
+/* No avatar tiles: questions read as an ornamented italic line, answers as a parchment card */
+[data-testid="stChatMessage"] > div:not([data-testid="stChatMessageContent"]) {
+    display: none;
+}
+[data-testid="stChatMessage"]:has([class*="st-key-question"]) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0.6rem 0.2rem 0.2rem !important;
+}
+[class*="st-key-question"] p {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-style: italic;
+    font-size: 1.25rem;
+    color: #2b1a10;
+}
+[class*="st-key-question"] p::before {
+    content: "❧ ";
+    font-style: normal;
+    color: #7a1f1f;
 }
 [class*="st-key-answer"] [data-testid="stMarkdownContainer"] > p:first-child::first-letter {
     float: left;
@@ -151,12 +188,32 @@ h1, h2, h3, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
     background: #fbf4e2;
     border: 1px solid #c9a96e;
 }
+.st-key-chat_footer {
+    gap: 1.2rem;
+    flex-wrap: wrap;
+}
+.st-key-chat_footer [data-testid="stMarkdownContainer"] {
+    width: auto;
+}
+.st-key-new_conversation button {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 1rem;
+    color: #7a1f1f;
+    background: transparent;
+    border: 1px solid #c9a96e;
+    border-radius: 999px;
+    padding: 0.15rem 0.9rem;
+    width: auto;
+}
+.st-key-new_conversation button:hover {
+    background: #fbf4e2;
+    border-color: #7a1f1f;
+}
 .usage-note {
     text-align: center;
     font-family: 'IM Fell English', Georgia, serif;
     font-style: italic;
     color: #6b4a2b;
-    margin-top: 0.4rem;
 }
 .stButton > button:hover {
     border-color: #7a1f1f;
@@ -252,28 +309,25 @@ def ask(question: str):
     st.session_state.pending = question
 
 
-def show_sources(sources: list[dict]):
-    """List the passages an answer was drawn from, numbered to match its [n] citations."""
+def show_sources(sources: list[dict], answer: str):
+    """List the passages the answer cites, keeping the [n] numbers used in the answer."""
     if not sources:
         return
-    with st.expander(f"Sources ({len(sources)} passages)"):
-        for i, src in enumerate(sources, 1):
+    cited = {int(n) for n in re.findall(r"\[(\d+)\]", answer)}
+    shown = [(i, src) for i, src in enumerate(sources, 1) if i in cited]
+    if shown:
+        label = f"Sources ({len(shown)} cited)"
+    else:  # e.g. the passages didn't answer the question: show what was searched
+        shown, label = list(enumerate(sources, 1)), f"Passages searched ({len(sources)})"
+    with st.expander(label):
+        for i, src in shown:
             st.markdown(f"**[{i}] {src['heading']}** · page {src['page']}")
             st.caption(src["excerpt"])
+        if len(shown) < len(sources):
+            st.caption(f"{len(sources) - len(shown)} other passages were searched but not cited.")
 
 
 with st.sidebar:
-    st.header("The collection")
-    st.markdown(
-        f"This app searches **38 plays** and **4 books of poems** by William Shakespeare, "
-        f"from the Folger Shakespeare Library editions, plus a biography of Shakespeare's life "
-        f"and career (from Wikipedia), split into "
-        f"**{rag.vectorstore.index.ntotal:,} passages** for searching."
-    )
-    for genre, titles in WORKS.items():
-        with st.expander(f"{genre} ({len(titles)})"):
-            st.markdown("\n".join(f"- {title}" for title in titles))
-
     st.header("What you can ask")
     st.markdown(
         "Ask about **plots, characters, scenes and speeches**. Each answer comes only from "
@@ -285,6 +339,17 @@ with st.sidebar:
     )
     for example in EXAMPLES:
         st.button(example, on_click=ask, args=(example,))
+
+    st.header("The collection")
+    st.markdown(
+        f"This app searches **38 plays** and **4 books of poems** by William Shakespeare, "
+        f"from the Folger Shakespeare Library editions, plus a biography of Shakespeare's life "
+        f"and career (from Wikipedia), split into "
+        f"**{rag.vectorstore.index.ntotal:,} passages** for searching."
+    )
+    for genre, titles in WORKS.items():
+        with st.expander(f"{genre} ({len(titles)})"):
+            st.markdown("\n".join(f"- {title}" for title in titles))
 
 st.markdown(HEADER, unsafe_allow_html=True)
 
@@ -302,13 +367,14 @@ for i, message in enumerate(st.session_state.messages):
             st.markdown(message["content"])
         if message.get("searched"):
             st.caption(f"Searched for: {message['searched']}")
-        show_sources(message.get("sources", []))
+        show_sources(message.get("sources", []), message["content"])
 
 if query:
     history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
     st.session_state.messages.append({"role": "user", "avatar": "🪶", "content": query})
     with st.chat_message("user", avatar="🪶"):
-        st.markdown(query)
+        with st.container(key=f"question_{len(st.session_state.messages) - 1}"):
+            st.markdown(query)
 
     count_question()
     with st.chat_message("assistant", avatar="🎭"):
@@ -328,7 +394,7 @@ if query:
         ]
         if searched:
             st.caption(f"Searched for: {searched}")
-        show_sources(sources)
+        show_sources(sources, answer)
     st.session_state.messages.append(
         {"role": "assistant", "avatar": "🎭", "content": answer, "sources": sources, "searched": searched}
     )
@@ -337,10 +403,11 @@ if query:
 
 if limit:
     st.info(limit, icon="📜")
-else:
-    st.markdown(f'<div class="usage-note">❦ {usage_note()}</div>', unsafe_allow_html=True)
 
-if st.session_state.messages:
-    with st.sidebar:
-        st.divider()
-        st.button("Clear chat", on_click=st.session_state.messages.clear)
+# Footer row above the input: questions left, and a way to start over once there's a conversation
+with st.container(key="chat_footer", horizontal=True, horizontal_alignment="center", vertical_alignment="center"):
+    if not limit:
+        st.markdown(f'<div class="usage-note">❦ {usage_note()}</div>', unsafe_allow_html=True)
+    if st.session_state.messages:
+        st.button("↺ New conversation", key="new_conversation", type="tertiary",
+                  on_click=st.session_state.messages.clear, help="Clear this conversation and start fresh")

@@ -145,6 +145,10 @@ def load_folger_pdf(path: str) -> list[Document]:
             if _is_speaker(line):
                 pending_speaker = text
                 continue
+            if line["italic"] and pending_speaker and text.startswith(","):
+                # "LYSANDER, to Theseus": a direction attached to the speaker's name
+                pending_speaker = f"{pending_speaker} [{text.lstrip(', ')}]"
+                continue
             if line["italic"]:
                 text = f"[{text}]"
             if pending_speaker:
