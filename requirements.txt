@@ -16,3 +16,4 @@ docx2txt
 jq
 ipykernel
 streamlit
+rank-bm25

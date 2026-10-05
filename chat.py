@@ -189,6 +189,16 @@ def ask(question: str):
     st.session_state.pending = question
 
 
+def show_sources(sources: list[dict]):
+    """List the passages an answer was drawn from, numbered to match its [n] citations."""
+    if not sources:
+        return
+    with st.expander(f"Sources ({len(sources)} passages)"):
+        for i, src in enumerate(sources, 1):
+            st.markdown(f"**[{i}] {src['heading']}** · page {src['page']}")
+            st.caption(src["excerpt"])
+
+
 with st.sidebar:
     st.header("The collection")
     st.markdown(
@@ -202,11 +212,11 @@ with st.sidebar:
 
     st.header("What you can ask")
     st.markdown(
-        "Ask about **plots, characters, scenes and speeches**. Each answer is summarized "
-        "from the passages that best match your question."
+        "Ask about **plots, characters, scenes and speeches**. Each answer comes only from "
+        "the passages that best match your question, with numbered sources you can check."
     )
     st.caption(
-        "Each question stands alone, so follow-ups don't remember earlier ones. "
+        "Follow-up questions like \"who is her cousin?\" use the conversation so far. "
         "Questions that need the whole canon at once, like counting every death, work poorly."
     )
     for example in EXAMPLES:
@@ -223,18 +233,37 @@ for i, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"], avatar=message["avatar"]):
         with st.container(key=f"{'answer' if message['role'] == 'assistant' else 'question'}_{i}"):
             st.markdown(message["content"])
+        if message.get("searched"):
+            st.caption(f"Searched for: {message['searched']}")
+        show_sources(message.get("sources", []))
 
 if query:
+    history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
     st.session_state.messages.append({"role": "user", "avatar": "🪶", "content": query})
     with st.chat_message("user", avatar="🪶"):
         st.markdown(query)
 
     with st.chat_message("assistant", avatar="🎭"):
         with st.spinner("Searching the plays..."):
-            answer = rag.search_and_summarize(query, top_k=3)
+            answer, results, searched = rag.answer(query, top_k=5, history=history)
+        searched = searched if searched != query else None  # only show when a follow-up was rewritten
+        sources = [
+            {
+                "heading": r["metadata"].get("heading", r["metadata"].get("source", "")),
+                "page": r["metadata"].get("page", "?"),
+                # Drop the heading line every chunk starts with; it's already shown above the excerpt
+                "excerpt": r["metadata"]["text"].split("\n", 1)[-1][:300].strip() + "…",
+            }
+            for r in results
+        ]
         with st.container(key=f"answer_{len(st.session_state.messages)}"):
             st.markdown(answer)
-    st.session_state.messages.append({"role": "assistant", "avatar": "🎭", "content": answer})
+        if searched:
+            st.caption(f"Searched for: {searched}")
+        show_sources(sources)
+    st.session_state.messages.append(
+        {"role": "assistant", "avatar": "🎭", "content": answer, "sources": sources, "searched": searched}
+    )
 
 if st.session_state.messages:
     with st.sidebar:

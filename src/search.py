@@ -4,13 +4,30 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
 from src.data_loader import load_all_documents
+from src.retriever import HybridRetriever
 from src.vectorstore import FaissVectorStore
 
 load_dotenv()
 
+HISTORY_MESSAGES = 6  # last 3 question/answer pairs are enough to resolve follow-ups
+
+SYSTEM_PROMPT = """You answer questions about Shakespeare's plays and poems using only the numbered passages provided.
+
+- Base every statement on the passages. Do not add facts from memory, even if you know them.
+- Cite the passages you used with their numbers, like [1] or [2][3], right after the statement they support.
+- Each passage starts with the work and section it comes from (e.g. "Macbeth, Act 1, Scene 7"); use this to name where things happen.
+- If the passages don't contain the answer, say so plainly and briefly describe what they do cover. Don't guess.
+- Keep answers concise: a short paragraph, or two for plot summaries."""
+
+CONDENSE_PROMPT = """Rewrite the user's latest question as a standalone question about Shakespeare's works.
+
+Use the conversation to resolve references like "she", "that play", "what about her cousin?" or "and in Act 2?",
+naming the work and characters explicitly. If the question is already standalone, return it unchanged.
+Keep any quoted lines exactly as written. Return only the rewritten question."""
+
 
 class RAGSearch:
-    """Retrieves relevant chunks from the FAISS store and summarizes them with an OpenAI LLM."""
+    """Retrieves relevant chunks (hybrid vector + keyword search) and answers from them with an OpenAI LLM."""
 
     def __init__(self, persist_dir: str = "faiss_store", data_dir: str = "data",
                  embedding_model: str = "all-MiniLM-L6-v2", llm_model: str = "gpt-6-luna"):
@@ -19,19 +36,43 @@ class RAGSearch:
             self.vectorstore.load()
         else:
             self.vectorstore.build_from_documents(load_all_documents(data_dir))
+        self.retriever = HybridRetriever(self.vectorstore)
 
         llm_model = os.getenv("OPENAI_MODEL", llm_model)
         self.llm = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"), model=llm_model, max_tokens=1024)
         print(f"[INFO] OpenAI LLM initialized: {llm_model}")
 
-    def search_and_summarize(self, query: str, top_k: int = 5) -> str:
-        results = self.vectorstore.query(query, top_k=top_k)
-        context = "\n\n".join(r["metadata"]["text"] for r in results)
-        if not context:
-            return "No relevant documents found."
+    def condense(self, query: str, history: list[dict]) -> str:
+        """Turn a follow-up question into a standalone one using the recent conversation."""
+        if not history:
+            return query
+        conversation = "\n".join(f"{m['role']}: {m['content']}" for m in history[-HISTORY_MESSAGES:])
+        messages = [
+            ("system", CONDENSE_PROMPT),
+            ("human", f"Conversation:\n{conversation}\n\nLatest question: {query}"),
+        ]
+        return self.llm.invoke(messages).content.strip()
 
-        prompt = f"Summarize the following context for the query: '{query}'\n\nContext:\n{context}\n\nSummary:"
-        return self.llm.invoke(prompt).content
+    def answer(self, query: str, top_k: int = 5, history: list[dict] | None = None) -> tuple[str, list[dict], str]:
+        """Answer from the top_k retrieved passages only.
+
+        history is the earlier chat as [{"role": "user" | "assistant", "content": ...}]; follow-ups are
+        rewritten into standalone questions before retrieval. Returns (answer, sources, standalone question).
+        """
+        query = self.condense(query, history or [])
+        results = self.retriever.search(query, top_k=top_k)
+        if not results:
+            return "No relevant documents found.", [], query
+
+        passages = "\n\n".join(f"[{i}] {r['metadata']['text']}" for i, r in enumerate(results, 1))
+        messages = [
+            ("system", SYSTEM_PROMPT),
+            ("human", f"Passages:\n{passages}\n\nQuestion: {query}"),
+        ]
+        return self.llm.invoke(messages).content, results, query
+
+    def search_and_summarize(self, query: str, top_k: int = 5) -> str:
+        return self.answer(query, top_k)[0]
 
 
 if __name__ == "__main__":

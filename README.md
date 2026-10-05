@@ -12,7 +12,8 @@ Under the hood it's a small retrieval-augmented generation (RAG) pipeline built 
 2. **Chunk** them with `RecursiveCharacterTextSplitter`
 3. **Embed** chunks with the `all-MiniLM-L6-v2` SentenceTransformer model
 4. **Index** the vectors in FAISS, persisted to `faiss_store/`
-5. **Retrieve** the closest chunks for a query and **summarize** them with an OpenAI chat model
+5. **Retrieve** chunks with hybrid search: FAISS vector search plus BM25 keyword search, merged with Reciprocal Rank Fusion (and limited to a work when the question names one)
+6. **Answer** with an OpenAI chat model, using only the retrieved passages and citing them as [1], [2]. Follow-up questions are first rewritten into standalone ones using the chat history
 
 ```mermaid
 flowchart LR
@@ -38,7 +39,10 @@ flowchart LR
 │   ├── folger_loader.py # Folger PDFs -> one clean document per scene/sonnet, with speakers
 │   ├── embedding.py     # EmbeddingPipeline: chunking + embeddings
 │   ├── vectorstore.py   # FaissVectorStore: build, save, load, query
-│   └── search.py        # RAGSearch: retrieval + OpenAI summary
+│   ├── retriever.py     # HybridRetriever: vector + BM25 search with rank fusion
+│   └── search.py        # RAGSearch: hybrid retrieval + grounded, cited OpenAI answer
+├── evals/
+│   └── retrieval_eval.py # Retrieval accuracy on 25 plot, quote and sonnet questions
 ├── data/                # Source documents (Shakespeare PDFs in data/pdf/Shakespeare/)
 ├── notebook/            # Step-by-step exploration notebooks
 └── notes/               # Notes on RAG concepts
@@ -108,7 +112,7 @@ This loads the saved index from `faiss_store/`, so it starts quickly. If `faiss_
 streamlit run chat.py
 ```
 
-This opens the Shakespeare RAG chat page at http://localhost:8501. The sidebar lists the works in the dataset and has example questions you can click. Each question is answered on its own, so follow-up questions don't see earlier messages.
+This opens the Shakespeare RAG chat page at http://localhost:8501. The sidebar lists the works in the dataset and has example questions you can click. Follow-up questions ("who is her cousin?") work: the app rewrites them into standalone questions using the conversation before searching, and shows what it searched for. Each answer lists its numbered sources.
 
 ## Usage
 
@@ -129,6 +133,19 @@ from src.search import RAGSearch
 rag = RAGSearch()  # options: persist_dir, data_dir, embedding_model, llm_model
 print(rag.search_and_summarize("What happens in As You Like It?", top_k=3))
 ```
+
+## Evaluation
+
+```bash
+python -m evals.retrieval_eval
+```
+
+Checks whether the right work (and, for famous quotes and sonnets, the exact scene or sonnet) appears in the top 5 retrieved passages, for vector-only and hybrid search:
+
+| Retrieval | Top-5 accuracy (25 questions) |
+| --- | --- |
+| Vector only (FAISS) | 56% |
+| Hybrid (FAISS + BM25 + rank fusion) | 100% |
 
 ## Configuration
 
