@@ -2,6 +2,10 @@
 
 Ask questions about Shakespeare's plays and poems and get answers drawn from the texts. The dataset is 38 plays and 4 poem collections from the [Folger Shakespeare Library](https://www.folger.edu/explore/shakespeares-works/) editions, and it comes with a Streamlit chat UI.
 
+**Live demo:** [shakespeare-rag-taniket.streamlit.app](https://shakespeare-rag-taniket.streamlit.app/)
+
+![Shakespeare RAG chat UI answering questions about The Merchant of Venice and As You Like It](assets/demo-screenshot.png)
+
 Under the hood it's a small retrieval-augmented generation (RAG) pipeline built with LangChain, which works on any documents you add:
 
 1. **Load** files from `data/` (PDF, TXT, CSV, Excel, Word, JSON) as LangChain documents
@@ -27,7 +31,7 @@ flowchart LR
 .
 ├── app.py               # Entry point: ask a question from the command line
 ├── chat.py              # Streamlit chat UI
-├── assets/logo.svg      # Logo shown in the chat UI
+├── assets/             # Chat UI logo and README demo screenshot
 ├── .streamlit/          # Streamlit theme (parchment colors)
 ├── src/
 │   ├── data_loader.py   # load_all_documents(): file -> LangChain documents
