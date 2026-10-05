@@ -1,3 +1,7 @@
+import os
+import threading
+from datetime import date
+
 import streamlit as st
 
 from src.search import RAGSearch
@@ -147,6 +151,13 @@ h1, h2, h3, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
     background: #fbf4e2;
     border: 1px solid #c9a96e;
 }
+.usage-note {
+    text-align: center;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-style: italic;
+    color: #6b4a2b;
+    margin-top: 0.4rem;
+}
 .stButton > button:hover {
     border-color: #7a1f1f;
     color: #7a1f1f;
@@ -184,6 +195,57 @@ rag = load_rag()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+    st.session_state.questions_asked = 0
+
+# Every question costs OpenAI credits, so cap usage of the public demo (override via env vars / Streamlit secrets).
+# Set IS_LOCAL=true locally to skip them.
+MAX_QUESTIONS_PER_SESSION = int(os.getenv("MAX_QUESTIONS_PER_SESSION") or 20)
+MAX_QUESTIONS_PER_DAY = int(os.getenv("MAX_QUESTIONS_PER_DAY") or 300)
+
+
+@st.cache_resource
+def daily_usage() -> dict:
+    """Questions asked today across all visitors (resets daily and when the app restarts)."""
+    return {"day": date.today(), "count": 0, "lock": threading.Lock()}
+
+
+def running_locally() -> bool:
+    """IS_LOCAL=true (e.g. in your local .env) turns usage limits off; unset or anything else keeps them on."""
+    return os.getenv("IS_LOCAL", "false").strip().lower() in {"true", "1", "yes"}
+
+
+def limit_reached() -> str | None:
+    if running_locally():
+        return None
+    usage = daily_usage()
+    with usage["lock"]:
+        if usage["day"] != date.today():
+            usage["day"], usage["count"] = date.today(), 0
+        if usage["count"] >= MAX_QUESTIONS_PER_DAY:
+            return "The demo has reached its question limit for today. Please come back tomorrow."
+    if st.session_state.questions_asked >= MAX_QUESTIONS_PER_SESSION:
+        return f"You've asked {MAX_QUESTIONS_PER_SESSION} questions, the limit for one visit to this demo. Thanks for trying it!"
+    return None
+
+
+def usage_note() -> str:
+    """Questions this visitor has left, shown above the input."""
+    if running_locally():
+        return "Running locally: no question limit."
+    session_left = max(MAX_QUESTIONS_PER_SESSION - st.session_state.questions_asked, 0)
+    day_left = max(MAX_QUESTIONS_PER_DAY - daily_usage()["count"], 0)
+    if day_left < session_left:
+        return f"{day_left} question{'s' if day_left != 1 else ''} left today for all visitors to this demo."
+    return f"{session_left} of {MAX_QUESTIONS_PER_SESSION} questions left in this visit."
+
+
+def count_question():
+    if running_locally():
+        return
+    st.session_state.questions_asked += 1
+    usage = daily_usage()
+    with usage["lock"]:
+        usage["count"] += 1
 
 
 def ask(question: str):
@@ -226,7 +288,10 @@ with st.sidebar:
 
 st.markdown(HEADER, unsafe_allow_html=True)
 
-query = st.chat_input("Ask about a play, character or scene") or st.session_state.pop("pending", None)
+limit = limit_reached()
+query = st.chat_input("Ask about a play, character or scene", disabled=bool(limit)) or st.session_state.pop("pending", None)
+if limit and query:
+    query = None  # an example button was clicked after the limit
 
 if not st.session_state.messages and not query:
     st.markdown(EPIGRAPH, unsafe_allow_html=True)
@@ -245,10 +310,13 @@ if query:
     with st.chat_message("user", avatar="🪶"):
         st.markdown(query)
 
+    count_question()
     with st.chat_message("assistant", avatar="🎭"):
         with st.spinner("Searching the plays..."):
-            answer, results, searched = rag.answer(query, history=history)
-        searched = searched if searched != query else None  # only show when a follow-up was rewritten
+            question, results = rag.retrieve(query, history)
+        with st.container(key=f"answer_{len(st.session_state.messages)}"):
+            answer = st.write_stream(rag.stream(question, results))
+        searched = question if question != query else None  # only show when a follow-up was rewritten
         sources = [
             {
                 "heading": r["metadata"].get("heading", r["metadata"].get("source", "")),
@@ -258,14 +326,19 @@ if query:
             }
             for r in results
         ]
-        with st.container(key=f"answer_{len(st.session_state.messages)}"):
-            st.markdown(answer)
         if searched:
             st.caption(f"Searched for: {searched}")
         show_sources(sources)
     st.session_state.messages.append(
         {"role": "assistant", "avatar": "🎭", "content": answer, "sources": sources, "searched": searched}
     )
+    if limit_reached():
+        st.rerun()  # this question used up the limit: redraw now with the input disabled and the notice shown
+
+if limit:
+    st.info(limit, icon="📜")
+else:
+    st.markdown(f'<div class="usage-note">❦ {usage_note()}</div>', unsafe_allow_html=True)
 
 if st.session_state.messages:
     with st.sidebar:

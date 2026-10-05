@@ -1,11 +1,14 @@
 """Retrieval eval: does the right work (and, for quotes, the right scene) show up in the top k?
 
 Run from the repo root:  python -m evals.retrieval_eval
+Add --expand to also test query expansion (uses the OpenAI API to write alternative phrasings).
 """
+import argparse
+
 from src.retriever import HybridRetriever
 from src.vectorstore import FaissVectorStore
 
-TOP_K = 5
+TOP_K = 5  # kept at 5 so results stay comparable as the eval grows; the app answers from 8
 
 # (question, expected title, expected section or None for "any section of the work")
 CASES = [
@@ -59,6 +62,10 @@ def hit(results, title, section) -> bool:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--expand", action="store_true", help="also evaluate hybrid search with query expansion")
+    args = parser.parse_args()
+
     store = FaissVectorStore()
     store.load()
     hybrid = HybridRetriever(store)
@@ -66,6 +73,11 @@ def main():
         "vector": lambda q: store.query(q, top_k=TOP_K),
         "hybrid": lambda q: hybrid.search(q, top_k=TOP_K),
     }
+    if args.expand:
+        from src.search import RAGSearch
+        rag = RAGSearch()
+        rag.vectorstore, rag.retriever = store, hybrid  # reuse the loaded index
+        systems["expanded"] = lambda q: hybrid.search(q, top_k=TOP_K, alternatives=rag.plan(q, []).alternatives)
     totals = {name: 0 for name in systems}
     for question, title, section in CASES:
         row = []

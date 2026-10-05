@@ -8,6 +8,7 @@ from src.vectorstore import FaissVectorStore
 RRF_K = 60  # standard Reciprocal Rank Fusion constant; dampens the weight of top ranks
 CANDIDATES = 50  # how deep each retriever's ranking goes into the fusion
 KEYWORD_SLOTS = 2  # top keyword matches always kept, so exact wording can't be outvoted by the fusion
+ALTERNATIVE_SLOTS = 2  # slots for results found only by alternative phrasings of the question
 
 # Short names people use for works, beyond what can be derived from the titles
 ALIASES = {
@@ -83,7 +84,20 @@ class HybridRetriever:
             return False
         return "section" not in flt or meta.get("section") == flt["section"]
 
-    def search(self, query: str, top_k: int = 5) -> list[dict[str, Any]]:
+    def search(self, query: str, top_k: int = 5, alternatives: list[str] = ()) -> list[dict[str, Any]]:
+        """Hybrid search for query. alternatives are other phrasings of it (query expansion): the best passages
+        they find that query itself missed fill ALTERNATIVE_SLOTS of the top_k."""
+        if alternatives:
+            main = self.search(query, top_k=top_k - ALTERNATIVE_SLOTS)
+            seen = {r["index"] for r in main}
+            fused: dict[int, float] = {}
+            for alt in alternatives:
+                for rank, r in enumerate(self.search(alt, top_k=top_k)):
+                    if r["index"] not in seen:
+                        fused[r["index"]] = fused.get(r["index"], 0.0) + 1 / (RRF_K + rank + 1)
+            extra = sorted(fused, key=fused.get, reverse=True)[:ALTERNATIVE_SLOTS]
+            return main + [{"index": i, "score": fused[i], "metadata": self.store.metadata[i]} for i in extra]
+
         flt = self.detect_filter(query)
 
         # Vector ranking (search everything when filtering, then keep only allowed chunks)

@@ -12,8 +12,8 @@ Under the hood it's a small retrieval-augmented generation (RAG) pipeline built 
 2. **Chunk** them with `RecursiveCharacterTextSplitter`
 3. **Embed** chunks with the `all-MiniLM-L6-v2` SentenceTransformer model
 4. **Index** the vectors in FAISS, persisted to `faiss_store/`
-5. **Retrieve** chunks with hybrid search: FAISS vector search plus BM25 keyword search, merged with Reciprocal Rank Fusion (and limited to a work when the question names one)
-6. **Answer** with an OpenAI chat model, using only the retrieved passages and citing them as [1], [2]. Follow-up questions are first rewritten into standalone ones using the chat history
+5. **Retrieve** chunks with hybrid search: FAISS vector search plus BM25 keyword search, merged with Reciprocal Rank Fusion (and limited to a work when the question names one). An LLM first writes 2 alternative phrasings of the question (query expansion), whose best results fill 2 of the 8 slots
+6. **Answer** with an OpenAI chat model, streamed as it's written, using only the retrieved passages and citing them as [1], [2]. Follow-up questions are first rewritten into standalone ones using the chat history
 
 ```mermaid
 flowchart LR
@@ -83,7 +83,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Open `.env` and set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`).
+Open `.env` and set `OPENAI_API_KEY`. The other settings (model and chat usage limits) are optional and commented out with their defaults.
 
 **4. Add documents (optional)**
 
@@ -147,9 +147,11 @@ characters, famous quotes, sonnets by number and Shakespeare's life.
 | --- | --- |
 | Vector only (FAISS) | 64% |
 | Hybrid (FAISS + BM25 + rank fusion) | 97% |
+| Hybrid + query expansion (current, `--expand`) | 100% |
 
-The one miss is deliberate: "Did someone else write Shakespeare's plays?" doesn't share vocabulary with the
-biography's *Authorship* section ("doubts about the authorship"), which query expansion could fix.
+Hybrid search alone misses "Did someone else write Shakespeare's plays?", whose wording doesn't match the
+biography's *Authorship* section ("doubts about the authorship"). Query expansion, where an LLM rewrites the
+question in a source's vocabulary ("Shakespeare authorship question"), finds it.
 
 **Answers** (`python -m evals.answer_eval`, uses the OpenAI API): an LLM judge scores answers to 17 held-out
 questions against key facts and the retrieved passages. Averages of 2 runs:
@@ -170,6 +172,9 @@ only use facts the passages contain.
 | --- | --- | --- |
 | `OPENAI_API_KEY` | `.env` | required |
 | `OPENAI_MODEL` | `.env` | `gpt-6-luna` |
+| `IS_LOCAL` | `.env` | `false`; set `true` locally to turn off the usage limits below |
+| `MAX_QUESTIONS_PER_SESSION` | `.env` / Streamlit secrets | `20` (chat UI only) |
+| `MAX_QUESTIONS_PER_DAY` | `.env` / Streamlit secrets | `300` across all visitors (chat UI only; resets when the app restarts) |
 | Embedding model | `RAGSearch(embedding_model=...)` | `all-MiniLM-L6-v2` |
 | Chunk size / overlap | `FaissVectorStore(chunk_size=..., chunk_overlap=...)` | `1000` / `200` |
 | Index location | `RAGSearch(persist_dir=...)` | `faiss_store/` |

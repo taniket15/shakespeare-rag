@@ -1,7 +1,10 @@
 import os
 
+from collections.abc import Iterator
+
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
 
 from src.data_loader import load_all_documents
 from src.retriever import HybridRetriever
@@ -22,11 +25,21 @@ SYSTEM_PROMPT = """You answer questions about Shakespeare's plays and poems usin
 - If the passages don't contain the answer, say so plainly and briefly describe what they do cover. Don't guess.
 - Length: 2 to 4 sentences for a focused question; up to two short paragraphs for a plot summary."""
 
-CONDENSE_PROMPT = """Rewrite the user's latest question as a standalone question about Shakespeare's works.
+SEARCH_PLAN_PROMPT = """You prepare searches over Shakespeare's plays and poems and a Wikipedia biography of Shakespeare.
 
-Use the conversation to resolve references like "she", "that play", "what about her cousin?" or "and in Act 2?",
-naming the work and characters explicitly. If the question is already standalone, return it unchanged.
-Keep any quoted lines exactly as written. Return only the rewritten question."""
+1. question: rewrite the user's latest question as a standalone question. Use the conversation to resolve
+   references like "she", "that play", "what about her cousin?" or "and in Act 2?", naming the work and characters
+   explicitly. If it's already standalone, keep it unchanged. Keep any quoted lines exactly as written.
+2. alternatives: write 2 short search queries that ask for the same information in the words a source would use:
+   the formal or scholarly terms a biography would use (e.g. "authorship doubts" for "did someone else write it?"),
+   or the character names, places and phrases likely to appear in the scene itself.
+
+Don't answer the question."""
+
+
+class SearchPlan(BaseModel):
+    question: str = Field(description="The standalone question")
+    alternatives: list[str] = Field(description="2 alternative search queries using a source's vocabulary")
 
 
 class RAGSearch:
@@ -41,38 +54,46 @@ class RAGSearch:
             self.vectorstore.build_from_documents(load_all_documents(data_dir))
         self.retriever = HybridRetriever(self.vectorstore)
 
-        llm_model = os.getenv("OPENAI_MODEL", llm_model)
+        llm_model = os.getenv("OPENAI_MODEL") or llm_model
         self.llm = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"), model=llm_model)
+        self.planner = self.llm.with_structured_output(SearchPlan)
         print(f"[INFO] OpenAI LLM initialized: {llm_model}")
 
-    def condense(self, query: str, history: list[dict]) -> str:
-        """Turn a follow-up question into a standalone one using the recent conversation."""
-        if not history:
-            return query
+    def plan(self, query: str, history: list[dict]) -> SearchPlan:
+        """One LLM call: a standalone version of the question plus alternative phrasings to search with."""
         conversation = "\n".join(f"{m['role']}: {m['content']}" for m in history[-HISTORY_MESSAGES:])
         messages = [
-            ("system", CONDENSE_PROMPT),
-            ("human", f"Conversation:\n{conversation}\n\nLatest question: {query}"),
+            ("system", SEARCH_PLAN_PROMPT),
+            ("human", f"Conversation:\n{conversation or '(none)'}\n\nLatest question: {query}"),
         ]
-        return self.llm.invoke(messages).content.strip()
+        return self.planner.invoke(messages)
 
-    def answer(self, query: str, top_k: int = TOP_K, history: list[dict] | None = None) -> tuple[str, list[dict], str]:
-        """Answer from the top_k retrieved passages only.
+    def retrieve(self, query: str, history: list[dict] | None = None, top_k: int = TOP_K) -> tuple[str, list[dict]]:
+        """Find passages for a question; returns (standalone question, passages).
 
-        history is the earlier chat as [{"role": "user" | "assistant", "content": ...}]; follow-ups are
-        rewritten into standalone questions before retrieval. Returns (answer, sources, standalone question).
+        history is the earlier chat as [{"role": "user" | "assistant", "content": ...}].
         """
-        query = self.condense(query, history or [])
-        results = self.retriever.search(query, top_k=top_k)
-        if not results:
-            return "No relevant documents found.", [], query
+        plan = self.plan(query, history or [])
+        return plan.question, self.retriever.search(plan.question, top_k=top_k, alternatives=plan.alternatives)
 
+    def stream(self, question: str, results: list[dict]) -> Iterator[str]:
+        """Stream an answer to the question from the retrieved passages only, citing them as [n]."""
+        if not results:
+            yield "No relevant documents found."
+            return
         passages = "\n\n".join(f"[{i}] {r['metadata']['text']}" for i, r in enumerate(results, 1))
         messages = [
             ("system", SYSTEM_PROMPT),
-            ("human", f"Passages:\n{passages}\n\nQuestion: {query}"),
+            ("human", f"Passages:\n{passages}\n\nQuestion: {question}"),
         ]
-        return self.llm.invoke(messages).content, results, query
+        for chunk in self.llm.stream(messages):
+            if isinstance(chunk.content, str):
+                yield chunk.content
+
+    def answer(self, query: str, top_k: int = TOP_K, history: list[dict] | None = None) -> tuple[str, list[dict], str]:
+        """Retrieve and answer in one call; returns (answer, sources, standalone question)."""
+        question, results = self.retrieve(query, history, top_k)
+        return "".join(self.stream(question, results)), results, question
 
     def search_and_summarize(self, query: str, top_k: int = TOP_K) -> str:
         return self.answer(query, top_k)[0]
