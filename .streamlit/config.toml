@@ -5,3 +5,7 @@ backgroundColor = "#f6ecd2"
 secondaryBackgroundColor = "#ead9b0"
 textColor = "#2b1a10"
 font = "serif"
+
+[server]
+# The file watcher imports every transformers submodule while scanning, which is slow and floods the logs
+fileWatcherType = "none"
