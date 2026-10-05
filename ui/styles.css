@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=UnifrakturMaguntia&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+
+html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"], [data-testid="stChatInput"] textarea {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 1.08rem;
+}
+[data-testid="stAppViewContainer"] {
+    background: radial-gradient(ellipse at center, #faf2dc 0%, #f1e2bd 65%, #dcc28c 100%);
+}
+/* Top bar and the input bar stay put while the chat scrolls: give them a solid parchment background
+   that fades into the page, so text scrolls cleanly under them instead of showing through */
+[data-testid="stHeader"], [data-testid="stBottom"] > div {
+    /* the page's own parchment gradient, pinned to the screen so the bars blend in seamlessly */
+    background: radial-gradient(ellipse at center, #faf2dc 0%, #f1e2bd 65%, #dcc28c 100%) fixed;
+}
+[data-testid="stHeader"] {
+    -webkit-mask-image: linear-gradient(180deg, #000 75%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 75%, transparent 100%);
+}
+[data-testid="stBottom"] > div {
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 1.5rem);
+    mask-image: linear-gradient(180deg, transparent 0, #000 1.5rem);
+}
+[data-testid="stBottomBlockContainer"] {
+    background: transparent;
+}
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #ecdcb2 0%, #e2cc98 100%);
+    border-right: 3px double #a8814a;
+}
+h1, h2, h3, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+    font-family: 'IM Fell English SC', Georgia, serif !important;
+    font-weight: 400 !important;
+    color: #7a1f1f;
+}
+[data-testid="stSidebar"] h2::before {
+    content: "❧ ";
+}
+
+.bard-header {
+    position: relative;
+    text-align: center;
+    padding: 1.4rem 1rem 1.1rem;
+    margin: 0.5rem 0 1.4rem;
+    border: 4px double #7a1f1f;
+    outline: 1px solid #c9a96e;
+    outline-offset: 5px;
+    background: rgba(251, 244, 226, 0.7);
+}
+.bard-header .corner {
+    position: absolute;
+    color: #7a1f1f;
+    font-size: 1.3rem;
+    line-height: 1;
+}
+.bard-header .tl { top: 0.3rem; left: 0.45rem; }
+.bard-header .tr { top: 0.3rem; right: 0.45rem; }
+.bard-header .bl { bottom: 0.3rem; left: 0.45rem; }
+.bard-header .br { bottom: 0.3rem; right: 0.45rem; }
+.bard-title {
+    font-family: 'IM Fell English SC', Georgia, serif;
+    font-size: clamp(2.6rem, 8.5vw, 4.6rem) !important;
+    line-height: 1.05;
+    color: #7a1f1f;
+    text-shadow: 1px 1px 0 #e6d3a3;
+}
+.bard-subtitle {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-style: italic;
+    font-size: 1.35rem !important;
+    margin-top: 0.3rem;
+}
+.bard-rule {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: #7a1f1f;
+    font-size: 1.4rem;
+    margin: 0.6rem auto 0;
+    max-width: 22rem;
+}
+.bard-rule::before, .bard-rule::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #7a1f1f, transparent);
+}
+.bard-epigraph {
+    text-align: center;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-style: italic;
+    font-size: 1.2rem;
+    margin: 0 auto 0.3rem;
+    max-width: 32rem;
+}
+.bard-epigraph-source {
+    text-align: center;
+    font-variant: small-caps;
+    letter-spacing: 0.05em;
+    color: #6b4a2b;
+}
+.bard-hint {
+    text-align: center;
+    margin-top: 1.2rem;
+    color: #6b4a2b;
+}
+
+[data-testid="stChatMessage"] {
+    background: #fbf4e2;
+    border: 3px double #c9a96e;
+    border-radius: 2px;
+    box-shadow: 2px 3px 8px rgba(90, 58, 34, 0.15);
+    padding: 1.1rem 1.4rem !important;  /* Streamlit leaves assistant messages without right padding */
+}
+/* No avatar tiles: questions read as an ornamented italic line, answers as a parchment card */
+[data-testid="stChatMessage"] > div:not([data-testid="stChatMessageContent"]) {
+    display: none;
+}
+[data-testid="stChatMessage"]:has([class*="st-key-question"]) {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0.6rem 0.2rem 0.2rem !important;
+}
+[class*="st-key-question"] p {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-style: italic;
+    font-size: 1.25rem;
+    color: #2b1a10;
+}
+[class*="st-key-question"] p::before {
+    content: "❧ ";
+    font-style: normal;
+    color: #7a1f1f;
+}
+[class*="st-key-answer"] [data-testid="stMarkdownContainer"] > p:first-child::first-letter {
+    float: left;
+    font-family: 'UnifrakturMaguntia', 'IM Fell English', serif;
+    font-size: 3.3em;
+    line-height: 0.85;
+    padding: 0.05em 0.12em 0 0;
+    color: #7a1f1f;
+}
+.stButton > button {
+    font-family: 'IM Fell English', Georgia, serif;
+    text-align: left;
+    width: 100%;
+    background: #fbf4e2;
+    border: 1px solid #c9a96e;
+}
+.st-key-chat_footer {
+    gap: 1.2rem;
+    flex-wrap: wrap;
+}
+.st-key-chat_footer [data-testid="stMarkdownContainer"] {
+    width: auto;
+}
+.st-key-new_conversation button {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 1rem;
+    color: #7a1f1f;
+    background: transparent;
+    border: 1px solid #c9a96e;
+    border-radius: 999px;
+    padding: 0.15rem 0.9rem;
+    width: auto;
+}
+.st-key-new_conversation button:hover {
+    background: #fbf4e2;
+    border-color: #7a1f1f;
+}
+.usage-note {
+    text-align: center;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-style: italic;
+    color: #6b4a2b;
+}
+.stButton > button:hover {
+    border-color: #7a1f1f;
+    color: #7a1f1f;
+}

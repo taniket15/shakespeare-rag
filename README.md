@@ -315,9 +315,14 @@ Every answer cites its sources, and both questions the texts can't answer ("In w
 ```
 .
 ├── app.py               # Entry point: ask a question from the command line
-├── chat.py              # Streamlit chat UI
+├── chat.py              # Streamlit chat UI: page layout and chat flow
+├── ui/
+│   ├── content.py       # Works catalog, example questions, header and quotation HTML
+│   ├── sources.py       # Cited-sources panel under each answer
+│   ├── usage.py         # Usage limits, questions-left counter, IS_LOCAL switch
+│   └── styles.css       # Parchment theme: fonts, cards, drop caps, input bar
 ├── assets/              # Chat UI logo and README demo screenshot
-├── .streamlit/          # Streamlit theme (parchment colors) and server settings
+├── .streamlit/          # Streamlit theme colors and server settings
 ├── src/
 │   ├── data_loader.py   # load_all_documents(): picks a loader per file
 │   ├── folger_loader.py # Folger PDFs -> one clean document per scene/sonnet, with speakers
@@ -330,8 +335,7 @@ Every answer cites its sources, and both questions the texts can't answer ("In w
 │   ├── retrieval_eval.py # Retrieval accuracy: right work/scene in the top 5 (33 questions)
 │   └── answer_eval.py   # LLM-judged answer completeness, faithfulness and citations (17 questions)
 ├── data/                # Source documents (data/pdf/Shakespeare/)
-├── faiss_store/         # Prebuilt index (committed)
-└── notes/               # Notes on RAG concepts
+└── faiss_store/         # Prebuilt index (committed)
 ```
 
 ## Usage

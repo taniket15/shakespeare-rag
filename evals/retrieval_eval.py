@@ -37,7 +37,8 @@ CASES = [
     ("When did Shakespeare die?", "William Shakespeare (biography)", None),
     ("What is the First Folio?", "William Shakespeare (biography)", None),
     # Known miss: casual wording doesn't match the section's vocabulary ("authorship", "doubts")
-    ("Did someone else write Shakespeare's plays?", "William Shakespeare (biography)", "Speculation about Shakespeare › Authorship"),
+    ("Did someone else write Shakespeare's plays?", "William Shakespeare (biography)",
+     "Speculation about Shakespeare › Authorship"),
     # Famous quotes: the exact scene must be retrieved
     ("Who says 'The quality of mercy is not strained' and why?", "The Merchant of Venice", "Act 4, Scene 1"),
     ("Who says 'To be or not to be'?", "Hamlet", "Act 3, Scene 1"),

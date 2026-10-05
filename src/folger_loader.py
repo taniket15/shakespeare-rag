@@ -63,7 +63,7 @@ def _page_lines(page) -> list[dict]:
             })
     # Speaker names sit either just above their first line (verse) or on it, ~2pt lower (prose),
     # so sort them as if 4pt higher to always land right before the line they introduce
-    return sorted(lines, key=lambda l: (round(l["y"] - (4 if _is_speaker(l) else 0)), l["x"]))
+    return sorted(lines, key=lambda ln: (round(ln["y"] - (4 if _is_speaker(ln) else 0)), ln["x"]))
 
 
 def _is_speaker(line: dict) -> bool:
@@ -77,7 +77,7 @@ def _body_start(doc) -> int:
     or the poem itself.
     """
     for i in range(min(15, doc.page_count)):
-        if any(l["size"] >= 14 and l["text"] == "Textual Introduction" for l in _page_lines(doc[i])):
+        if any(ln["size"] >= 14 and ln["text"] == "Textual Introduction" for ln in _page_lines(doc[i])):
             return i + 2
     return 0
 

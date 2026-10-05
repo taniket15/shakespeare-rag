@@ -1,5 +1,4 @@
 import os
-
 from collections.abc import Iterator
 
 from dotenv import load_dotenv
@@ -19,7 +18,8 @@ SYSTEM_PROMPT = """You answer questions about Shakespeare's plays and poems usin
 
 - Base every statement on the passages. Do not add facts from memory, even if you know them.
 - Cite the passages you used with their numbers, like [1] or [2][3], right after the statement they support.
-- Each passage starts with the work and section it comes from (e.g. "Macbeth, Act 1, Scene 7"); use this to name where things happen.
+- Each passage starts with the work and section it comes from (e.g. "Macbeth, Act 1, Scene 7");
+  use this to name where things happen.
 - Answer completely. Combine the relevant details from all the passages: who did what, how, why, and what
   happened as a result. Include specific names, objects and events (e.g. a letter, a casket, a poison).
 - If the passages don't contain the answer, say so plainly and briefly describe what they do cover. Don't guess.
