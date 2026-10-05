@@ -1,6 +1,6 @@
 # Shakespeare RAG
 
-Ask questions about Shakespeare's plays and poems and get answers drawn from the texts. The dataset is 38 plays and 4 poem collections from the [Folger Shakespeare Library](https://www.folger.edu/explore/shakespeares-works/) editions, and it comes with a Streamlit chat UI.
+Ask questions about Shakespeare's plays and poems and get answers drawn from the texts. The dataset is 38 plays and 4 poem collections from the [Folger Shakespeare Library](https://www.folger.edu/explore/shakespeares-works/) editions, plus a Wikipedia biography of Shakespeare for questions about his life and career. It comes with a Streamlit chat UI.
 
 **Live demo:** [shakespeare-rag-taniket.streamlit.app](https://shakespeare-rag-taniket.streamlit.app/)
 
@@ -37,14 +37,15 @@ flowchart LR
 ├── src/
 │   ├── data_loader.py   # load_all_documents(): file -> LangChain documents
 │   ├── folger_loader.py # Folger PDFs -> one clean document per scene/sonnet, with speakers
+│   ├── wiki_loader.py   # Wikipedia PDF exports -> one clean document per article section
 │   ├── embedding.py     # EmbeddingPipeline: chunking + embeddings
 │   ├── vectorstore.py   # FaissVectorStore: build, save, load, query
 │   ├── retriever.py     # HybridRetriever: vector + BM25 search with rank fusion
 │   └── search.py        # RAGSearch: hybrid retrieval + grounded, cited OpenAI answer
 ├── evals/
-│   └── retrieval_eval.py # Retrieval accuracy on 25 plot, quote and sonnet questions
+│   ├── retrieval_eval.py # Retrieval accuracy: right work/scene in the top 5 (33 questions)
+│   └── answer_eval.py   # LLM-judged answer completeness, faithfulness and citations (17 questions)
 ├── data/                # Source documents (Shakespeare PDFs in data/pdf/Shakespeare/)
-├── notebook/            # Step-by-step exploration notebooks
 └── notes/               # Notes on RAG concepts
 ```
 
@@ -136,16 +137,32 @@ print(rag.search_and_summarize("What happens in As You Like It?", top_k=3))
 
 ## Evaluation
 
-```bash
-python -m evals.retrieval_eval
-```
+Two evals live in `evals/`. Both run from the repo root.
 
-Checks whether the right work (and, for famous quotes and sonnets, the exact scene or sonnet) appears in the top 5 retrieved passages, for vector-only and hybrid search:
+**Retrieval** (`python -m evals.retrieval_eval`, no API calls): does the right work, and for quotes, sonnets and
+plot overviews the exact scene, sonnet or synopsis, appear in the top 5 passages? 33 questions covering plots,
+characters, famous quotes, sonnets by number and Shakespeare's life.
 
-| Retrieval | Top-5 accuracy (25 questions) |
+| Retrieval | Top-5 accuracy (33 questions) |
 | --- | --- |
-| Vector only (FAISS) | 56% |
-| Hybrid (FAISS + BM25 + rank fusion) | 100% |
+| Vector only (FAISS) | 64% |
+| Hybrid (FAISS + BM25 + rank fusion) | 97% |
+
+The one miss is deliberate: "Did someone else write Shakespeare's plays?" doesn't share vocabulary with the
+biography's *Authorship* section ("doubts about the authorship"), which query expansion could fix.
+
+**Answers** (`python -m evals.answer_eval`, uses the OpenAI API): an LLM judge scores answers to 17 held-out
+questions against key facts and the retrieved passages. Averages of 2 runs:
+
+| Setup | Key facts in passages | Answer completeness | Faithful to passages | Avg. length |
+| --- | --- | --- | --- | --- |
+| Original prompt, 5 passages | — | 49% | 15/17 | 33 words |
+| Detailed prompt, 5 passages | 60% | 53% | 14/17 | 49 words |
+| **Detailed prompt, 8 passages (current)** | **68%** | **58%** | **17/17** | 55 words |
+
+Every answer cites its sources, and both questions the texts can't answer ("In what year was Hamlet first
+performed?", "What is the capital of France?") are declined. Completeness is capped by retrieval: answers can
+only use facts the passages contain.
 
 ## Configuration
 
@@ -160,5 +177,4 @@ Checks whether the right work (and, for famous quotes and sonnets, the exact sce
 ## Notes
 
 - Supported file types: PDF (`pypdf`), TXT, CSV, Excel `.xlsx` (`unstructured`), Word `.docx` (`docx2txt`) and JSON (`jq`). Files that fail to load are logged and skipped.
-- The notebooks build a separate Chroma database in `data/vector_store/`. It is generated locally and is not committed.
 - Retrieval uses FAISS `IndexFlatL2`, so a **smaller distance means a closer match**.

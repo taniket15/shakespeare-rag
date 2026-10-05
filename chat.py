@@ -28,6 +28,7 @@ EXAMPLES = [
     "How does Puck cause trouble in the forest?",
     "Who is Caliban in The Tempest?",
     "How does Romeo and Juliet end?",
+    "Who was Shakespeare's wife?",
 ]
 
 STYLE = """
@@ -203,7 +204,8 @@ with st.sidebar:
     st.header("The collection")
     st.markdown(
         f"This app searches **38 plays** and **4 books of poems** by William Shakespeare, "
-        f"from the Folger Shakespeare Library editions, split into "
+        f"from the Folger Shakespeare Library editions, plus a biography of Shakespeare's life "
+        f"and career (from Wikipedia), split into "
         f"**{rag.vectorstore.index.ntotal:,} passages** for searching."
     )
     for genre, titles in WORKS.items():
@@ -245,7 +247,7 @@ if query:
 
     with st.chat_message("assistant", avatar="🎭"):
         with st.spinner("Searching the plays..."):
-            answer, results, searched = rag.answer(query, top_k=5, history=history)
+            answer, results, searched = rag.answer(query, history=history)
         searched = searched if searched != query else None  # only show when a follow-up was rewritten
         sources = [
             {

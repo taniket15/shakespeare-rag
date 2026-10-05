@@ -11,6 +11,7 @@ from langchain_community.document_loaders import (
 from langchain_community.document_loaders.excel import UnstructuredExcelLoader
 
 from src.folger_loader import is_folger_pdf, load_folger_pdf
+from src.wiki_loader import is_wikipedia_pdf, load_wikipedia_pdf
 
 # File extension -> function that builds a loader for that file
 LOADERS = {
@@ -37,6 +38,8 @@ def load_all_documents(data_dir: str) -> list[Any]:
             try:
                 if is_folger_pdf(file):
                     loaded = load_folger_pdf(str(file))
+                elif is_wikipedia_pdf(file):
+                    loaded = load_wikipedia_pdf(str(file))
                 else:
                     loaded = make_loader(str(file)).load()
                 documents.extend(loaded)

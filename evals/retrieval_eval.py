@@ -28,6 +28,13 @@ CASES = [
     # Sonnets by number
     ("What is Sonnet 18 about?", "Shakespeare's Sonnets", "Sonnet 18"),
     ("What does Sonnet 130 say about the speaker's mistress?", "Shakespeare's Sonnets", "Sonnet 130"),
+    # Shakespeare's life (Wikipedia biography)
+    ("When and where was Shakespeare born?", "William Shakespeare (biography)", None),
+    ("Who was Shakespeare's wife?", "William Shakespeare (biography)", None),  # Anne Hathaway appears in several sections
+    ("When did Shakespeare die?", "William Shakespeare (biography)", None),
+    ("What is the First Folio?", "William Shakespeare (biography)", None),
+    # Known miss: casual wording doesn't match the section's vocabulary ("authorship", "doubts")
+    ("Did someone else write Shakespeare's plays?", "William Shakespeare (biography)", "Speculation about Shakespeare › Authorship"),
     # Famous quotes: the exact scene must be retrieved
     ("Who says 'The quality of mercy is not strained' and why?", "The Merchant of Venice", "Act 4, Scene 1"),
     ("Who says 'To be or not to be'?", "Hamlet", "Act 3, Scene 1"),

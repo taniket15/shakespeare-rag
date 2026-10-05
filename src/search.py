@@ -9,6 +9,7 @@ from src.vectorstore import FaissVectorStore
 
 load_dotenv()
 
+TOP_K = 8  # passages per answer; 8 beat 5 on completeness and faithfulness in evals/answer_eval.py
 HISTORY_MESSAGES = 6  # last 3 question/answer pairs are enough to resolve follow-ups
 
 SYSTEM_PROMPT = """You answer questions about Shakespeare's plays and poems using only the numbered passages provided.
@@ -16,8 +17,10 @@ SYSTEM_PROMPT = """You answer questions about Shakespeare's plays and poems usin
 - Base every statement on the passages. Do not add facts from memory, even if you know them.
 - Cite the passages you used with their numbers, like [1] or [2][3], right after the statement they support.
 - Each passage starts with the work and section it comes from (e.g. "Macbeth, Act 1, Scene 7"); use this to name where things happen.
+- Answer completely. Combine the relevant details from all the passages: who did what, how, why, and what
+  happened as a result. Include specific names, objects and events (e.g. a letter, a casket, a poison).
 - If the passages don't contain the answer, say so plainly and briefly describe what they do cover. Don't guess.
-- Keep answers concise: a short paragraph, or two for plot summaries."""
+- Length: 2 to 4 sentences for a focused question; up to two short paragraphs for a plot summary."""
 
 CONDENSE_PROMPT = """Rewrite the user's latest question as a standalone question about Shakespeare's works.
 
@@ -39,7 +42,7 @@ class RAGSearch:
         self.retriever = HybridRetriever(self.vectorstore)
 
         llm_model = os.getenv("OPENAI_MODEL", llm_model)
-        self.llm = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"), model=llm_model, max_tokens=1024)
+        self.llm = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"), model=llm_model)
         print(f"[INFO] OpenAI LLM initialized: {llm_model}")
 
     def condense(self, query: str, history: list[dict]) -> str:
@@ -53,7 +56,7 @@ class RAGSearch:
         ]
         return self.llm.invoke(messages).content.strip()
 
-    def answer(self, query: str, top_k: int = 5, history: list[dict] | None = None) -> tuple[str, list[dict], str]:
+    def answer(self, query: str, top_k: int = TOP_K, history: list[dict] | None = None) -> tuple[str, list[dict], str]:
         """Answer from the top_k retrieved passages only.
 
         history is the earlier chat as [{"role": "user" | "assistant", "content": ...}]; follow-ups are
@@ -71,10 +74,10 @@ class RAGSearch:
         ]
         return self.llm.invoke(messages).content, results, query
 
-    def search_and_summarize(self, query: str, top_k: int = 5) -> str:
+    def search_and_summarize(self, query: str, top_k: int = TOP_K) -> str:
         return self.answer(query, top_k)[0]
 
 
 if __name__ == "__main__":
     rag_search = RAGSearch()
-    print("Summary:", rag_search.search_and_summarize("What happens in As You Like It?", top_k=3))
+    print("Summary:", rag_search.search_and_summarize("What happens in As You Like It?"))
