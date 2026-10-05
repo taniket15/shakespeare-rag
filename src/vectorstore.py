@@ -60,5 +60,5 @@ if __name__ == "__main__":
 
     store = FaissVectorStore()
     store.build_from_documents(load_all_documents("data"))
-    for result in store.query("What is machine learning?", top_k=3):
+    for result in store.query("What happens in As You Like It?", top_k=3):
         print(result["distance"], result["metadata"]["text"][:200])

@@ -36,4 +36,4 @@ class RAGSearch:
 
 if __name__ == "__main__":
     rag_search = RAGSearch()
-    print("Summary:", rag_search.search_and_summarize("What is machine learning?", top_k=3))
+    print("Summary:", rag_search.search_and_summarize("What happens in As You Like It?", top_k=3))

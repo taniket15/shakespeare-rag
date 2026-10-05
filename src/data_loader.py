@@ -10,6 +10,8 @@ from langchain_community.document_loaders import (
 )
 from langchain_community.document_loaders.excel import UnstructuredExcelLoader
 
+from src.folger_loader import is_folger_pdf, load_folger_pdf
+
 # File extension -> function that builds a loader for that file
 LOADERS = {
     ".pdf": PyPDFLoader,
@@ -33,7 +35,10 @@ def load_all_documents(data_dir: str) -> list[Any]:
             print(f"[INFO] Found {len(files)} {ext} files")
         for file in files:
             try:
-                loaded = make_loader(str(file)).load()
+                if is_folger_pdf(file):
+                    loaded = load_folger_pdf(str(file))
+                else:
+                    loaded = make_loader(str(file)).load()
                 documents.extend(loaded)
                 print(f"[INFO] Loaded {len(loaded)} docs from {file.name}")
             except Exception as e:

@@ -35,6 +35,7 @@ flowchart LR
 ├── .streamlit/          # Streamlit theme (parchment colors)
 ├── src/
 │   ├── data_loader.py   # load_all_documents(): file -> LangChain documents
+│   ├── folger_loader.py # Folger PDFs -> one clean document per scene/sonnet, with speakers
 │   ├── embedding.py     # EmbeddingPipeline: chunking + embeddings
 │   ├── vectorstore.py   # FaissVectorStore: build, save, load, query
 │   └── search.py        # RAGSearch: retrieval + OpenAI summary

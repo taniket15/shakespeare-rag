@@ -229,7 +229,7 @@ Import: `langchain_core.documents.Document`.
 - Packages: `langchain`, `langchain-core`, `langchain-community`, plus PDF libs **`pypdf` / `pymupdf`**, and **`ipykernel`** for notebooks.
 - Folders: `data/` (e.g. `text_files/`, `pdf/`) and `notebook/`.
 
-This repo already follows that layout (`notebook/document.ipynb`, `data/text_files/`, `data/pdf/`).
+This repo follows that layout (`notebook/pdf_loader.ipynb`, `data/pdf/`).
 
 ---
 

@@ -19,6 +19,11 @@ class EmbeddingPipeline:
 
     def chunk_documents(self, documents: list[Any]) -> list[Any]:
         chunks = self.splitter.split_documents(documents)
+        for chunk in chunks:
+            # Lead each chunk with where it's from (e.g. "Macbeth, Act 1, Scene 7") so the
+            # embedding and the LLM both see the work and scene, not just the lines
+            if heading := chunk.metadata.get("heading"):
+                chunk.page_content = f"{heading}\n{chunk.page_content}"
         print(f"[INFO] Split {len(documents)} documents into {len(chunks)} chunks")
         return chunks
 
