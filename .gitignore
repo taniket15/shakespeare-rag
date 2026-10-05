@@ -222,8 +222,6 @@ __marimo__/
 # macOS
 .DS_Store
 
-# Generated FAISS index (rebuilt on first run)
-faiss_store/
 
 # Generated Chroma database (built by the notebooks)
 data/vector_store/

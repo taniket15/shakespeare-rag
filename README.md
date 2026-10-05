@@ -79,15 +79,15 @@ Open `.env` and set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`).
 
 `data/pdf/Shakespeare/` already has the Folger editions of the plays and poems. To search other material, drop in your own files (PDF, TXT, CSV, `.xlsx`, `.docx`, `.json`). Subfolders are searched too.
 
-**5. Build the vector store**
+**5. Build the vector store (only if you changed `data/`)**
 
 ```bash
 python -m src.vectorstore
 ```
 
-This loads every file in `data/`, splits it into chunks, embeds the chunks and saves a FAISS index to `faiss_store/`, then runs a sample query to check it works. It takes a minute or two, and the embedding model is downloaded the first time. It doesn't need an OpenAI key.
+The repo already includes a prebuilt index in `faiss_store/`, so you can skip this step. To rebuild it, this command loads every file in `data/`, splits it into chunks, embeds the chunks and saves a FAISS index to `faiss_store/`, then runs a sample query to check it works. It takes a minute or two, and the embedding model is downloaded the first time. It doesn't need an OpenAI key.
 
-> **Changed your documents?** Run this command again. It rebuilds the index from scratch and overwrites `faiss_store/`, which is generated locally and is not committed to the repo.
+> **Changed your documents?** Run this command again. It rebuilds the index from scratch and overwrites `faiss_store/`. The index for the Shakespeare dataset is committed to the repo, so the hosted app can load it instead of building it on startup. Commit it again after rebuilding.
 
 **6. Run it**
 
@@ -95,7 +95,7 @@ This loads every file in `data/`, splits it into chunks, embeds the chunks and s
 python app.py "What happens in As You Like It?"
 ```
 
-This reuses the saved index, so it starts quickly. If you skip step 5, the first run builds the index for you.
+This loads the saved index from `faiss_store/`, so it starts quickly. If `faiss_store/` is missing, the first run builds it for you.
 
 **7. Chat in the browser (optional)**
 
