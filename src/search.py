@@ -3,6 +3,7 @@ from collections.abc import Iterator
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from langsmith import traceable
 from pydantic import BaseModel, Field
 
 from src.data_loader import load_all_documents
@@ -42,6 +43,15 @@ class SearchPlan(BaseModel):
     alternatives: list[str] = Field(description="2 alternative search queries using a source's vocabulary")
 
 
+def as_documents(results: list[dict]) -> dict:
+    """Format retrieved passages the way LangSmith displays retriever outputs."""
+    return {"documents": [
+        {"type": "Document", "page_content": r["metadata"]["text"],
+         "metadata": {k: v for k, v in r["metadata"].items() if k != "text"} | {"score": r["score"]}}
+        for r in results
+    ]}
+
+
 class RAGSearch:
     """Retrieves relevant chunks (hybrid vector + keyword search) and answers from them with an OpenAI LLM."""
 
@@ -59,6 +69,7 @@ class RAGSearch:
         self.planner = self.llm.with_structured_output(SearchPlan)
         print(f"[INFO] OpenAI LLM initialized: {llm_model}")
 
+    @traceable(name="plan")
     def plan(self, query: str, history: list[dict]) -> SearchPlan:
         """One LLM call: a standalone version of the question plus alternative phrasings to search with."""
         conversation = "\n".join(f"{m['role']}: {m['content']}" for m in history[-HISTORY_MESSAGES:])
@@ -68,14 +79,22 @@ class RAGSearch:
         ]
         return self.planner.invoke(messages)
 
+    @traceable(name="retrieve")
     def retrieve(self, query: str, history: list[dict] | None = None, top_k: int = TOP_K) -> tuple[str, list[dict]]:
         """Find passages for a question; returns (standalone question, passages).
 
         history is the earlier chat as [{"role": "user" | "assistant", "content": ...}].
         """
         plan = self.plan(query, history or [])
-        return plan.question, self.retriever.search(plan.question, top_k=top_k, alternatives=plan.alternatives)
+        return plan.question, self.search(plan.question, plan.alternatives, top_k)
 
+    @traceable(name="hybrid_search", run_type="retriever", process_outputs=as_documents)
+    def search(self, question: str, alternatives: list[str], top_k: int = TOP_K) -> list[dict]:
+        """Hybrid search for the standalone question and its alternative phrasings."""
+        return self.retriever.search(question, top_k=top_k, alternatives=alternatives)
+
+    @traceable(name="generate", reduce_fn="".join,
+               process_inputs=lambda inputs: {"question": inputs["question"], "passages": len(inputs["results"])})
     def stream(self, question: str, results: list[dict]) -> Iterator[str]:
         """Stream an answer to the question from the retrieved passages only, citing them as [n]."""
         if not results:
@@ -90,6 +109,7 @@ class RAGSearch:
             if isinstance(chunk.content, str):
                 yield chunk.content
 
+    @traceable(name="rag_answer", process_outputs=lambda out: {"answer": out[0], "question": out[2]})
     def answer(self, query: str, top_k: int = TOP_K, history: list[dict] | None = None) -> tuple[str, list[dict], str]:
         """Retrieve and answer in one call; returns (answer, sources, standalone question)."""
         question, results = self.retrieve(query, history, top_k)

@@ -1,4 +1,7 @@
 """Streamlit chat UI for Shakespeare RAG. Run with: streamlit run chat.py"""
+import uuid
+
+import langsmith
 import streamlit as st
 
 from src.search import RAGSearch
@@ -21,10 +24,16 @@ rag = load_rag()
 if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.questions_asked = 0
+    st.session_state.thread_id = str(uuid.uuid4())  # groups a conversation's traces into one LangSmith thread
 
 
 def ask(question: str):
     st.session_state.pending = question
+
+
+def new_conversation():
+    st.session_state.messages.clear()
+    st.session_state.thread_id = str(uuid.uuid4())
 
 
 with st.sidebar:
@@ -77,11 +86,15 @@ if query:
             st.markdown(query)
 
     count_question()
-    with st.chat_message("assistant", avatar="🎭"):
+    # One trace per question, with retrieval and the streamed answer as its child runs
+    with st.chat_message("assistant", avatar="🎭"), langsmith.trace(
+        "chat_turn", inputs={"question": query}, metadata={"thread_id": st.session_state.thread_id},
+    ) as trace:
         with st.spinner("Searching the plays..."):
             question, results = rag.retrieve(query, history)
         with st.container(key=f"answer_{len(st.session_state.messages)}"):
             answer = st.write_stream(rag.stream(question, results))
+        trace.end(outputs={"answer": answer, "question": question})
         searched = question if question != query else None  # only show when a follow-up was rewritten
         sources = to_sources(results)
         if searched:
@@ -102,4 +115,4 @@ with st.container(key="chat_footer", horizontal=True, horizontal_alignment="cent
         st.markdown(f'<div class="usage-note">❦ {usage_note()}</div>', unsafe_allow_html=True)
     if st.session_state.messages:
         st.button("↺ New conversation", key="new_conversation", type="tertiary",
-                  on_click=st.session_state.messages.clear, help="Clear this conversation and start fresh")
+                  on_click=new_conversation, help="Clear this conversation and start fresh")
