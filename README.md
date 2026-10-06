@@ -239,13 +239,16 @@ The live demo uses my OpenAI key, so every visitor's question costs money. Prote
 | **20 questions per visit** (`MAX_QUESTIONS_PER_SESSION`) | Counted per browser session; the input is disabled and a notice shown at the limit | Stops casual overuse while letting a recruiter try the app without signing in |
 | **300 questions per day, all visitors** (`MAX_QUESTIONS_PER_DAY`) | One shared counter in server memory, reset daily | The real ceiling: refreshing the page starts a new session, but can't get past the daily limit |
 | **Remaining-questions counter** | "18 of 20 questions left in this visit" above the input | Users see the limit before they hit it |
+| **500-character questions** (`MAX_QUESTION_CHARS`) | The chat input stops accepting text at 500 characters | A question goes into both LLM calls and later history, so a pasted essay would cost many times over while counting as one question |
+| **Off-topic gate** | The planning call also decides whether the question is about Shakespeare; if not, a fixed reply is shown with no search or answer call | Stops the app being used as a free general chatbot. A declined question costs about 450 tokens instead of about 2,600, and prompt injections ("ignore your instructions and…") are declined the same way. All 50 eval questions except the intended "capital of France" pass the gate |
+| **4,000-token output cap** (`MAX_OUTPUT_TOKENS`) | Caps each LLM call's output, hidden reasoning included | Bounds the cost of "write a 3,000-word essay"-style requests. Normal answers use 20–600 output tokens |
 | **`IS_LOCAL=true`** | Turns the limits off on my machine; it defaults to `false` | Limits can't be forgotten on deploy: Streamlit Cloud never sets it, so the public app is always limited |
 | **Monthly budget on the OpenAI project** (recommended for any deployment) | Hard spending cap set in the OpenAI dashboard | Works even if the app restarts and its counters reset |
 | **API key in Streamlit secrets**, never in the repo (`.env` is git-ignored); ideally a restricted key in its own OpenAI project | The demo's key can only be read by the server, and a restricted key can only call models | Limits the damage if it leaks |
 
 *Considered and rejected:* **login** (`st.login`) for true per-user limits, because it adds friction for people trying a portfolio demo; and **per-IP limits**, because shared networks group many people and the hosting proxy can hide real IPs.
 
-*Also decided:* **no `max_tokens` cap.** The model is a reasoning model whose hidden thinking counts toward the cap: at 1,024 tokens, the eval caught it returning **empty answers**. The prompt already keeps answers to 2–4 sentences, and the limits above control cost, so the cap was removed rather than tuned.
+*Also decided:* **a generous output cap, not a tight one.** The model is a reasoning model whose hidden thinking counts toward the cap: at 1,024 tokens, the eval caught it returning **empty answers**. The cap is 4,000 instead, far above what answers use (at most about 600 output tokens, reasoning included, in testing), and if it's ever hit before any text is written, the user sees a message asking for a shorter question rather than an empty answer.
 
 ### Ingestion
 

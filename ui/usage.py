@@ -9,6 +9,7 @@ import streamlit as st
 # Set IS_LOCAL=true locally to skip them.
 MAX_QUESTIONS_PER_SESSION = int(os.getenv("MAX_QUESTIONS_PER_SESSION") or 20)
 MAX_QUESTIONS_PER_DAY = int(os.getenv("MAX_QUESTIONS_PER_DAY") or 300)
+MAX_QUESTION_CHARS = 500  # a question goes into both LLM calls and later history, so a pasted essay costs many times over
 
 
 @st.cache_resource

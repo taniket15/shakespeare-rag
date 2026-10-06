@@ -7,7 +7,7 @@ import streamlit as st
 from src.search import RAGSearch
 from ui.content import EPIGRAPH, EXAMPLES, HEADER, WORKS, styles
 from ui.sources import show_sources, to_sources
-from ui.usage import count_question, limit_reached, usage_note
+from ui.usage import MAX_QUESTION_CHARS, count_question, limit_reached, usage_note
 
 st.set_page_config(page_title="Shakespeare RAG", page_icon="🪶", layout="centered")
 st.markdown(styles(), unsafe_allow_html=True)
@@ -63,7 +63,8 @@ with st.sidebar:
 st.markdown(HEADER, unsafe_allow_html=True)
 
 limit = limit_reached()
-query = st.chat_input("Ask about a play, character or scene", disabled=bool(limit)) or st.session_state.pop("pending", None)
+query = st.chat_input("Ask about a play, character or scene", disabled=bool(limit),
+                      max_chars=MAX_QUESTION_CHARS) or st.session_state.pop("pending", None)
 if limit and query:
     query = None  # an example button was clicked after the limit
 
