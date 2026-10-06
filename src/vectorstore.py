@@ -7,6 +7,18 @@ import faiss
 from src.embedding import EmbeddingPipeline
 
 
+def _overlap(text: str, chunk: str, max_chars: int = 400) -> int:
+    """Length of the text's ending that chunk starts with: the splitter's chunk_overlap.
+
+    Matches only whole words at both ends, so a chunk starting "then" doesn't overlap a text ending "the".
+    """
+    for k in range(min(len(text), len(chunk), max_chars), 0, -1):
+        whole_words = (k == len(chunk) or chunk[k].isspace()) and (k == len(text) or text[-k - 1].isspace())
+        if whole_words and text.endswith(chunk[:k]):
+            return k
+    return 0
+
+
 class FaissVectorStore:
     """FAISS index of document chunks, persisted to disk with the chunk texts."""
 
@@ -43,6 +55,41 @@ class FaissVectorStore:
         with open(self.meta_path, "rb") as f:
             self.metadata = pickle.load(f)
         print(f"[INFO] Loaded {self.index.ntotal} vectors from {self.persist_dir}")
+
+    def section_text(self, index: int) -> tuple[str, int, int]:
+        """The whole section (scene, sonnet, synopsis...) that chunk index belongs to, rebuilt from its chunks.
+
+        Returns (text, start, end): the text without the heading line, and where the chunk sits in it.
+        A chunk without a section (generic loaders) is returned on its own.
+        """
+        meta = self.metadata[index]
+
+        def same(i: int) -> bool:
+            m = self.metadata[i]
+            return m.get("source") == meta.get("source") and m.get("section") == meta.get("section")
+
+        first = last = index
+        if meta.get("section") is not None:  # a section's chunks are stored next to each other, in order
+            while first > 0 and same(first - 1):
+                first -= 1
+            while last + 1 < len(self.metadata) and same(last + 1):
+                last += 1
+
+        text, start, end = "", 0, 0
+        for i in range(first, last + 1):
+            chunk = self.metadata[i]["text"]
+            if self.metadata[i].get("heading"):
+                chunk = chunk.split("\n", 1)[-1]
+            chunk = chunk.strip()
+            overlap = _overlap(text, chunk)
+            if overlap:  # the chunk repeats the end of the text so far
+                chunk_start, text = len(text) - overlap, text + chunk[overlap:]
+            else:
+                text = f"{text}\n{chunk}" if text else chunk
+                chunk_start = len(text) - len(chunk)
+            if i == index:
+                start, end = chunk_start, len(text)
+        return text, start, end
 
     def query(self, query_text: str, top_k: int = 5) -> list[dict[str, Any]]:
         """Return the top_k closest chunks (smaller distance = more similar)."""

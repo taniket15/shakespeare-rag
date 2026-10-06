@@ -77,7 +77,7 @@ for i, message in enumerate(st.session_state.messages):
             st.markdown(message["content"])
         if message.get("searched"):
             st.caption(f"Searched for: {message['searched']}")
-        show_sources(message.get("sources", []), message["content"])
+        show_sources(message.get("sources", []), message["content"], str(i), rag.vectorstore.section_text)
 
 if query:
     history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
@@ -100,7 +100,7 @@ if query:
         sources = to_sources(results)
         if searched:
             st.caption(f"Searched for: {searched}")
-        show_sources(sources, answer)
+        show_sources(sources, answer, str(len(st.session_state.messages)), rag.vectorstore.section_text)
     st.session_state.messages.append(
         {"role": "assistant", "avatar": "🎭", "content": answer, "sources": sources, "searched": searched}
     )

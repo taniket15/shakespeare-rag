@@ -179,3 +179,37 @@ h1, h2, h3, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
     border-color: #7a1f1f;
     color: #7a1f1f;
 }
+/* Sources panel: the excerpt and its "…Read more" button flow as one paragraph */
+[class*="st-key-excerpt_"] {
+    display: block !important;
+}
+[class*="st-key-excerpt_"] div,
+[class*="st-key-excerpt_"] p {
+    display: inline !important;
+    width: auto !important;
+}
+[class*="st-key-read_more"] button {
+    display: inline;
+    font-family: 'IM Fell English', Georgia, serif;
+    font-style: italic;
+    font-size: 0.875rem;
+    color: #7a1f1f;
+    background: transparent;
+    border: none;
+    width: auto;
+    min-height: 0;
+    padding: 0 0 0 0.25em;
+    vertical-align: baseline;
+}
+[class*="st-key-read_more"] button:hover {
+    text-decoration: underline;
+}
+/* "Read in context" dialog: the whole section, cited passage highlighted */
+.section-text p {
+    margin: 0 0 0.6em;
+}
+.section-text mark {
+    background: #ead9b0;
+    color: inherit;
+    padding: 0.05em 0;
+}
